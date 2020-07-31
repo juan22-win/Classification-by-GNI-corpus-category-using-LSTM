@@ -1,1 +1,1 @@
-# Classification-by-G-I-corpus-category-using-LSTM
+# Classification-by-GNI-corpus-category-using-LSTM
