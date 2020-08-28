@@ -1,0 +1,107 @@
+
+import nltk
+import itertools
+import re
+import csv
+from nltk.corpus import stopwords
+
+# 텍스트에 포함되어 있는 특수 문자 및 중복 띄어쓰기 제거
+def preprocessing(readData):
+    text = re.sub('[×%[\'(-=.#/?:$}]', '', readData)
+    text = re.sub(' +', ' ', text)
+    return text
+stop_words = set(stopwords.words('english'))  # 불용어 제거
+
+corpus_root = "C:/Users/sua91/nltk_data/Genomics-Informatics-Corpus-master/GNI Corpus 1.0/sentence_tokenized"
+
+# 전처리할 데이터 제목 리스트를 gni_list에 저장
+f=open("gni_list.txt","r",encoding = 'utf8')
+g_lines=f.readlines()
+gni_list=[]
+for x in g_lines:
+    gni_list.append(x[:-1])
+f.close()
+
+# 전처리한 최종 data를 저장하는 리스트(csv파일에 포함될 text)
+final_data_list = []
+
+### 메인 코드 ###
+# sentence_tokenized 내에 존재하는 모든 코퍼스에 대해 진행
+for text in gni_list:
+    gniCorpus = nltk.corpus.PlaintextCorpusReader(corpus_root, text, encoding="utf-8")  
+    gniSents = gniCorpus.sents()   # text 토큰화
+    gniSents= list(itertools.chain.from_iterable(gniSents))  # 이중 리스트를 1차원 리스트로 변환
+    result = []
+    # 불용어 제거
+    for w in gniSents:
+        if w not in stop_words:
+            result.append(w)
+    '''
+    # 명사만 따로 분류(코드에서는 활용하지 않았음.)
+    tagged = nltk.pos_tag(result)
+    result = [word for word, pos in tagged if pos in ['NN', 'NNP']]  # 명사추출
+    '''
+    result = " ".join(result)   # 리스트를 문자열로 변환
+    result = preprocessing(result)  # 특수문자, 중복 띄어쓰기 제거
+
+    
+    # 특수 용어 리스트 구축
+    f=open("gene_with_protein_product_name.txt","r",encoding = 'utf8')
+    p_lines=f.readlines()
+    protein=[]
+    for x in p_lines:
+        protein.append(x[:-1])  # \n 기호 제거
+    f.close()
+
+    f=open("non-coding_RNA_name.txt","r",encoding = 'utf8')
+    r_lines=f.readlines()
+    RNA=[]
+    for x in r_lines:
+        RNA.append(x[:-1])
+    f.close()
+
+    f=open("pseudogene_name.txt","r",encoding = 'utf8')
+    ps_lines=f.readlines()
+    pseudogene=[]
+    for x in ps_lines:
+        pseudogene.append(x[:-1])
+    f.close()
+    
+    num = []
+    num_pro = 0
+    num_rna = 0
+    num_sequence = 0
+
+    for i in protein:
+        if i in result:
+            num_pro += 1
+        
+    for i in RNA:
+        if i in result:
+            num_rna += 1
+        
+    for i in pseudogene:
+        if i in result:
+            num_sequence += 1
+        
+    sequence = re.findall(r'\b[ACGT]{2,}\b', result)
+    num_sequence += len(sequence)
+
+    if num_pro == 0 and num_rna == 0 and num_sequence == 0:
+        type = 'etc'
+
+    num = [num_pro, num_rna, num_sequence]
+    if num.index(max(num)) == 0:
+        type = 'protein'
+    elif num.index(max(num)) == 1:
+        type = 'RNA'
+    else:
+        type = 'sequence'
+    
+    final_data_list += [[result, type]]
+
+
+
+import pandas as pd
+df = pd.DataFrame(final_data_list)
+df.to_csv("dataset.csv", header = ['text', 'type'], index = None)
